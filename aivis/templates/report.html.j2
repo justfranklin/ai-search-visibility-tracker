@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI search visibility · {{ rep.you }}</title>
+<style>
+  .viz-root {
+    color-scheme: light;
+    --surface-0: #f4f4f2; --surface-1: #fcfcfb; --line: #e4e3df;
+    --text-primary: #0b0b0b; --text-secondary: #52514e; --text-muted: #77766f;
+    --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --neutral: #b9b8b1;
+    --accent: #184f95; --good: #0ca30c; --critical: #d03b3b;
+  }
+  @media (prefers-color-scheme: dark) {
+    .viz-root {
+      color-scheme: dark;
+      --surface-0: #121211; --surface-1: #1a1a19; --line: #33332f;
+      --text-primary: #f0efec; --text-secondary: #c3c2b7; --text-muted: #9a998f;
+      --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --neutral: #55554f;
+      --accent: #86b6ef;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+  .viz-root { background: var(--surface-0); color: var(--text-primary); min-height: 100vh;
+              font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, sans-serif; }
+  main { max-width: 1040px; margin: 0 auto; padding: 40px 20px 64px; }
+  .eyebrow { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+  h1 { font-size: 30px; margin: 4px 0; }
+  .sub { color: var(--text-secondary); margin: 0 0 24px; }
+  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .kpi { background: var(--surface-1); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; }
+  .kpi .v { font-size: 28px; font-weight: 650; font-variant-numeric: tabular-nums; }
+  .kpi .l { color: var(--text-secondary); font-size: 13px; }
+  .delta { font-size: 13px; font-weight: 600; margin-left: 6px; }
+  .delta.up { color: var(--good); } .delta.down { color: var(--critical); } .delta.flat { color: var(--text-muted); }
+  .card { background: var(--surface-1); border: 1px solid var(--line); border-radius: 10px; padding: 20px 22px; margin-top: 16px; }
+  .card h2 { font-size: 16px; margin: 0 0 2px; }
+  .note { color: var(--text-secondary); font-size: 13px; margin: 0 0 14px; }
+  .legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12px; color: var(--text-secondary); margin: 0 0 8px; }
+  .legend i { display: inline-block; width: 14px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 6px; }
+  svg { width: 100%; height: auto; display: block; overflow: visible; }
+  svg .grid { stroke: var(--line); } svg .axis { stroke: var(--text-muted); }
+  svg .tick { fill: var(--text-muted); font-size: 11px; }
+  svg .label { fill: var(--text-secondary); font-size: 13px; }
+  svg .value { fill: var(--text-primary); font-size: 12px; font-variant-numeric: tabular-nums; }
+  svg .hit { fill: transparent; } svg .mark:hover rect.hit { fill: var(--line); opacity: .45; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .two .card { margin-top: 16px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; color: var(--text-secondary); font-weight: 600; border-bottom: 1px solid var(--line); padding: 8px 6px; }
+  td { border-bottom: 1px solid var(--line); padding: 8px 6px; vertical-align: top; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  td.c { text-align: center; font-variant-numeric: tabular-nums; }
+  .hit-cell { font-weight: 650; }
+  .miss { color: var(--text-muted); }
+  .topic { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .05em; }
+  .gap { padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .gap:last-child { border-bottom: 0; }
+  .gap q { font-weight: 600; quotes: "“" "”"; }
+  .chips { margin-top: 6px; display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip { font-size: 12px; padding: 2px 9px; border-radius: 999px; border: 1px solid var(--line); color: var(--text-secondary); }
+  footer { margin-top: 28px; font-size: 12px; color: var(--text-muted); }
+  @media (max-width: 800px) { .kpis { grid-template-columns: repeat(2, 1fr); } .two { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="viz-root">
+<main>
+  {% macro delta(now, prev) -%}
+    {%- if prev is not none -%}
+      {%- set d = (now - prev) * 100 -%}
+      <span class="delta {{ 'up' if d > 0.5 else ('down' if d < -0.5 else 'flat') }}">{% if d > 0.5 %}▲ {{ '%+.0f'|format(d) }} pts{% elif d < -0.5 %}▼ {{ '%+.0f'|format(d) }} pts{% else %}no change{% endif %}</span>
+    {%- endif -%}
+  {%- endmacro %}
+  <div class="eyebrow">AI search visibility</div>
+  <h1>{{ rep.you }}</h1>
+  <p class="sub">{{ cfg.prompts|length }} buyer questions · {{ rep.engines|join(", ") }} · latest run {{ rep.latest }}{% if rep.previous %} vs {{ rep.previous }}{% endif %}</p>
+
+  <div class="kpis">
+    <div class="kpi"><div class="v">{{ "%.0f"|format(rep.you_now.mention_rate * 100) }}%{{ delta(rep.you_now.mention_rate, rep.you_prev.mention_rate if rep.you_prev else none) }}</div><div class="l">of answers mention {{ rep.you }}</div></div>
+    <div class="kpi"><div class="v">{{ "%.0f"|format(rep.you_now.first_rate * 100) }}%{{ delta(rep.you_now.first_rate, rep.you_prev.first_rate if rep.you_prev else none) }}</div><div class="l">of answers name {{ rep.you }} first</div></div>
+    <div class="kpi"><div class="v">{{ "%.1f"|format(rep.you_now.avg_rank) if rep.you_now.avg_rank else "–" }}</div><div class="l">average position when mentioned</div></div>
+    <div class="kpi"><div class="v">{{ "%.0f"|format(rep.you_now.cite_rate * 100) }}%</div><div class="l">of answers cite {{ cfg.brand.domain or "your site" }}</div></div>
+  </div>
+
+  <section class="card">
+    <h2>Share of answers mentioning each brand</h2>
+    <p class="note">Latest run, all engines and questions. Hover a bar for average position.</p>
+    {{ ranking }}
+  </section>
+
+  <section class="card">
+    <h2>Mention rate over time</h2>
+    <p class="note">{{ rep.you }} and the three most-mentioned competitors, one point per run.</p>
+    {% if rep.run_dates|length > 1 %}
+    <div class="legend">{% for b, c in legend %}<span><i style="background: {{ c }}"></i>{{ b }}</span>{% endfor %}</div>
+    {% endif %}
+    {{ trend }}
+  </section>
+
+  <div class="two">
+    <section class="card">
+      <h2>By topic</h2>
+      <p class="note">Where {{ rep.you }} shows up, and the competitor that shows up most.</p>
+      <table>
+        <tr><th>Topic</th><th class="num">{{ rep.you }}</th><th>Top competitor</th><th class="num">Them</th></tr>
+        {% for topic, mine, rival, theirs in rep.by_topic %}
+        <tr><td>{{ topic }}</td><td class="num">{{ "%.0f"|format(mine * 100) }}%</td><td>{{ rival }}</td><td class="num">{{ "%.0f"|format(theirs * 100) }}%</td></tr>
+        {% endfor %}
+      </table>
+    </section>
+    <section class="card">
+      <h2>By engine</h2>
+      <p class="note">How often each AI assistant mentions {{ rep.you }}.</p>
+      <table>
+        <tr><th>Engine</th><th class="num">Mentioned</th><th class="num">Avg. position</th></tr>
+        {% for e, rate, pos in rep.by_engine %}
+        <tr><td>{{ e }}</td><td class="num">{{ "%.0f"|format(rate * 100) }}%</td><td class="num">{{ "%.1f"|format(pos) if pos else "–" }}</td></tr>
+        {% endfor %}
+      </table>
+    </section>
+  </div>
+
+  <section class="card">
+    <h2>Content gaps</h2>
+    <p class="note">Questions where competitors appear and {{ rep.you }} doesn't, in any engine. These are the topics to write about.</p>
+    {% for g in rep.gaps %}
+    <div class="gap">
+      <div class="topic">{{ g.topic }}</div>
+      <q>{{ g.question }}</q>
+      <div class="chips">{% for b, n in g.competitors %}<span class="chip">{{ b }} · {{ n }}/{{ g.answers }}</span>{% endfor %}</div>
+    </div>
+    {% else %}
+    <p>No gaps in the latest run: {{ rep.you }} appears somewhere for every question.</p>
+    {% endfor %}
+  </section>
+
+  <section class="card">
+    <h2>Every question, every engine</h2>
+    <p class="note">Answers mentioning {{ rep.you }} out of answers collected, with the best position reached.</p>
+    <table>
+      <tr><th>Question</th>{% for e in rep.engines %}<th class="num">{{ e }}</th>{% endfor %}</tr>
+      {% for p in rep.grid %}
+      <tr><td><span class="topic">{{ p.topic }}</span><br>{{ p.question }}</td>
+        {% for c in p.cells %}
+        <td class="num {{ 'hit-cell' if c.hits else 'miss' }}">{% if c.n %}{{ c.hits }}/{{ c.n }}{% if c.best %} · #{{ c.best }}{% endif %}{% else %}–{% endif %}</td>
+        {% endfor %}
+      </tr>
+      {% endfor %}
+    </table>
+  </section>
+
+  <footer>Built with ai-search-visibility-tracker. Raw answers are saved alongside the results, so every number can be checked against what the AI said.</footer>
+</main>
+</div>
+</body>
+</html>

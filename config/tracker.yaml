@@ -1,0 +1,45 @@
+# AI search visibility tracker
+#
+# Ask AI assistants the questions your buyers ask, then track whether your brand
+# shows up, how early in the answer, and whether your site is cited, compared with
+# competitors. Run it weekly to see the trend.
+#
+# This example tracks marketing automation platforms. Swap in your own brand,
+# competitors and buyer questions.
+
+brand:
+  name: HubSpot
+  domain: hubspot.com
+  aliases: [HubSpot Marketing Hub]
+
+competitors:
+  - {name: Marketo, domain: marketo.com, aliases: [Adobe Marketo, Marketo Engage]}
+  - {name: Salesforce, domain: salesforce.com, aliases: [Marketing Cloud, Account Engagement, Pardot]}
+  - {name: ActiveCampaign, domain: activecampaign.com}
+  - {name: Mailchimp, domain: mailchimp.com}
+  - {name: Klaviyo, domain: klaviyo.com}
+  - {name: Brevo, domain: brevo.com, aliases: [Sendinblue]}
+
+# The questions buyers ask, grouped by topic. Write them the way a person would type them.
+prompts:
+  - {id: best-b2b, topic: Shortlist, text: "What are the best marketing automation platforms for a mid-size B2B company?"}
+  - {id: best-smb, topic: Shortlist, text: "Which marketing automation tool should a small business start with?"}
+  - {id: alt-marketo, topic: Alternatives, text: "What are good alternatives to Marketo?"}
+  - {id: alt-salesforce, topic: Alternatives, text: "What should I use instead of Salesforce Marketing Cloud for B2B email?"}
+  - {id: lead-scoring, topic: Capabilities, text: "Which marketing automation platforms have the best lead scoring?"}
+  - {id: crm-integration, topic: Capabilities, text: "What marketing automation software has the best built-in CRM?"}
+  - {id: abm, topic: Capabilities, text: "What tools do B2B teams use for account-based marketing?"}
+  - {id: ai-features, topic: Capabilities, text: "Which marketing platforms have the most useful AI features for email and content?"}
+  - {id: pricing, topic: Pricing, text: "What is the most affordable marketing automation platform for a growing company?"}
+  - {id: migrate, topic: Switching, text: "How hard is it to migrate from one marketing automation platform to another, and which ones make it easiest?"}
+
+# AI engines to ask. Each runs only when its API key is set.
+# Set `model` to a current model name for each provider you use.
+engines:
+  - {id: claude, provider: anthropic, model: claude-sonnet-5-5, key_env: ANTHROPIC_API_KEY}
+  - {id: chatgpt, provider: openai, model: "", key_env: OPENAI_API_KEY}          # e.g. your current GPT model
+  - {id: perplexity, provider: perplexity, model: sonar, key_env: PERPLEXITY_API_KEY}
+  - {id: gemini, provider: gemini, model: "", key_env: GEMINI_API_KEY}           # e.g. your current Gemini model
+
+# Answers vary between runs. Asking each question more than once gives steadier numbers.
+samples: 1
